@@ -1,0 +1,8 @@
+.private/
+**/.private/
+**/test-data/
+**/node_modules/
+**/__pycache__/
+*.pyc
+.env
+*.sqlite3*

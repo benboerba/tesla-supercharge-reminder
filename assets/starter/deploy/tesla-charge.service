@@ -1,0 +1,18 @@
+[Unit]
+Description=Tesla charge invite-only shared service
+After=network-online.target
+[Service]
+User=tesla-charge
+Group=tesla-charge
+WorkingDirectory=/opt/tesla-charge/shared-charge
+ExecStart=/usr/bin/python3 -B /opt/tesla-charge/shared-charge/server.py
+EnvironmentFile=/etc/tesla-charge.env
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tesla-charge/shared-charge/.private
+[Install]
+WantedBy=multi-user.target
