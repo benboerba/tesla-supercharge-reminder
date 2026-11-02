@@ -1,5 +1,7 @@
 import React,{useState,useEffect} from 'react';
 export default function Monitor({s,me,busy,act}){
+ const [mode,setMode]=useState(s.reminder_mode||'minute');
+ useEffect(()=>setMode(s.reminder_mode||'minute'),[s.reminder_mode,me.name]);
  const [now,setNow]=useState(Date.now()/1000),[choice,setChoice]=useState(''),[confirmed,setConfirmed]=useState(false);
  useEffect(()=>{setNow(s.server_time||Date.now()/1000);let t=setInterval(()=>setNow(n=>n+1),1000);return()=>clearInterval(t)},[s.server_time]);
  useEffect(()=>{setChoice('');setConfirmed(false)},[s.candidate_expires_at]);
@@ -14,6 +16,10 @@ export default function Monitor({s,me,busy,act}){
  <p className="mt-6 leading-7">{s.status||'请在连接 Tesla 超充桩、正在充电时检查车辆。'}</p>
  {phase==='awaiting_station'&&<div className="mt-5 p-4 border border-accent/30 rounded-xl bg-paper"><p className="font-medium">确认你实际所在的超充站</p><p className="hint mt-2">列表来自本次 Tesla 接口查询，距离仅供核对。确认时使用这次检查的数据，不额外查询车辆。{expired?'候选已过期，请重新检查。':'有效期剩余 '+Math.max(0,Math.ceil((s.candidate_expires_at-now)/60))+' 分钟。'}</p><label htmlFor="station" className="mt-4">附近站点</label><select id="station" value={choice} onChange={e=>{setChoice(e.target.value);setConfirmed(false)}} disabled={!!busy||expired}><option value="">请选择站点</option>{(s.candidates||[]).map(x=><option key={x.id} value={x.id} disabled={x.closed}>{x.name} · 约 {x.distance_m} 米{x.closed?' · 接口标记关闭':''}</option>)}</select><label className="flex items-start gap-3 text-sm font-normal mt-4"><input className="!w-4 mt-1" type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} disabled={!choice||expired}/><span>我确认车辆正在所选站点充电</span></label><button className="btn w-full mt-3" disabled={!!busy||!choice||!confirmed||expired} onClick={()=>act('confirm_station',{station:choice,confirmed:true})}>确认本站并开始监控</button></div>}
  <dl className="mt-6 pt-5 border-t border-ink/10 space-y-3 text-sm"><div className="flex justify-between gap-3"><dt className="text-ink/60">{stale?'上次充电状态':'充电状态'}</dt><dd>{charges[s.charging_state]||'尚未确认'}</dd></div><div className="flex justify-between gap-3"><dt className="text-ink/60">最近车辆查询 · 北京时间</dt><dd>{when(s.checked_at)}</dd></div>{running&&<div className="flex justify-between gap-3"><dt className="text-ink/60">计划下次查询</dt><dd>{when(s.next_check_at)}</dd></div>}{s.push_status&&<div className="flex justify-between gap-3"><dt className="text-ink/60">最近推送结果</dt><dd>{s.push_status}</dd></div>}</dl>
- <button className="btn w-full mt-7" disabled={!!busy||(!s.enabled&&(!me.connected||!me.selected||!me.notification.confirmed||remaining>0))} onClick={()=>act(s.enabled?'stop':'start')}>{checking?'取消本次检查':running?'结束本次监控':remaining>0?'还需 '+remaining+' 秒可重新检查':s.checked_at?'重新检查车辆与站点':'检查车辆并识别本站'}</button>
- <p className="hint mt-4">{!me.connected||!me.selected||!me.notification.confirmed?'请先完成授权、选车和手机收件确认。 ':''}自动匹配成功或你确认本站后，才开始空位监控。{s.report_mode==='diagnostic'?'每 1 分钟检查并报告站点情况。':'每 9 分钟检查，仅确认满位时提醒；未知或过期数据不发满位提醒。'}确认拔枪后自动结束；关闭页面不影响已开启的任务。</p></section>
+ <label className="block mt-6" htmlFor="reminder-mode">本次提醒方式</label>
+ <select id="reminder-mode" value={mode} disabled={!!busy||s.enabled||phase==='awaiting_station'} onChange={e=>setMode(e.target.value)}>
+ <option value="minute">每分钟报空位 · 首次测试</option><option value="near">快满时提醒 · 剩 1～2 个或满位时</option><option value="move">只在该挪车时提醒 · 充电已结束且满位</option></select>
+ <p className="hint mt-2">{mode==='minute'?'每轮都通知，数据过期时提示未知。':mode==='near'?'进入快满或满位状态时通知，状态不变不重复。':'满位、已结束充电且仍插枪时通知；持续满足条件，9 分钟后再提醒一次。'}</p>
+ <button className="btn w-full mt-7" disabled={!!busy||(!s.enabled&&(!me.connected||!me.selected||!me.notification.confirmed||remaining>0))} onClick={()=>act(s.enabled?'stop':'start',s.enabled?{}:{reminder_mode:mode})}>{checking?'取消本次检查':running?'结束本次监控':remaining>0?'还需 '+remaining+' 秒可重新检查':s.checked_at?'重新检查车辆与站点':'检查车辆并识别本站'}</button>
+ <p className="hint mt-4">{!me.connected||!me.selected||!me.notification.confirmed?'请先完成授权、选车和手机收件确认。 ':''}自动匹配成功或你确认本站后，才开始空位监控。每 1 分钟检查；按所选方式通知。确认拔枪后自动结束；关闭页面不影响已开启的任务。</p></section>
 }

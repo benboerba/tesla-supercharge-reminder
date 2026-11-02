@@ -3,7 +3,6 @@ from pathlib import Path
 from unittest.mock import patch
 os.environ['CHARGE_SHARED_DATA']=str(Path(__file__).resolve().parent/'test-data'/uuid.uuid4().hex)
 os.environ['CHARGE_ORIGIN']='http://127.0.0.1:15330'
-os.environ['CHARGE_REPORT_MODE']='diagnostic'
 import store,service,server
 class SharedTests(unittest.TestCase):
  def setUp(self):
@@ -72,13 +71,15 @@ class SharedTests(unittest.TestCase):
    with patch.object(service.Client,'cars',return_value=[{'vin':d['selected'],'state':'online'}]),patch.object(service.Client,'api',return_value={'charge_state':{'charging_state':charging,'timestamp':stamp}}),patch.object(service.Client,'sites',return_value={}),patch.object(service,'push'):
     service.step(self.a)
    self.assertTrue(store.get(self.a)['state']['enabled'])
- def test_full_only_mode_filters_unknown_and_available(self):
-  d=self.ready(self.a)
-  for status,count in [('unknown',None),('available',3),('low',1),('full',0)]:
-   s=dict(d['state'],occupancy_status=status,available=count,total=6)
-   with patch.object(service,'REPORT_MODE','full_only'),patch.object(service,'push') as p:
-    service.deliver(d,s,None)
-    self.assertEqual(p.call_count,1 if status=='full' else 0)
+ def test_near_transitions_and_move_repeat(self):
+  d=self.ready(self.a);s=d['state'];d['reminder_mode']='near'
+  with patch.object(service,'push') as push:
+   for status in ('low','unknown','low','full','full','available','low'):
+    s.update(occupancy_status=status,available=0 if status=='full' else 1,total=6);service.deliver(d,s,None)
+   self.assertEqual(push.call_count,3)
+   push.reset_mock();d['reminder_mode']='move';s.update(occupancy_status='full',available=0,charge_data_fresh=True,charging_state='Charging',plug_present=True)
+   service.deliver(d,s,None);push.assert_not_called();s['charging_state']='Complete';service.deliver(d,s,None);service.deliver(d,s,None)
+   self.assertEqual(push.call_count,1);s['move_first']-=541;service.deliver(d,s,None);service.deliver(d,s,None);self.assertEqual(push.call_count,2)
  def test_refresh_only_current_user(self):
   d=self.ready(self.a);other=self.ready(self.b);d['tokens']['expires_at']=0;store.put(self.a,d)
   with patch.object(service,'config',return_value={'client_id':'app'}),patch.object(service,'request',side_effect=[{'access_token':'new','refresh_token':'newrefresh','expires_in':3600},{'response':[]}]) as r:

@@ -40,7 +40,7 @@ python3 -B -m unittest -q test_tesla_watch test_auto_monitor
 
 1. 将 starter 内容复制到 `/opt/tesla-charge`，保留 shared-charge 相对路径。创建非 root 服务用户 tesla-charge；准备根目录 `.private/` 和 `shared-charge/.private/`，目录 700、私有配置 600，运行用户可读写需要的目录。
 2. 把 config.example.json 作为格式参考，在服务器私有目录写入 `.private/config.json`。填写自己的 client_id/client_secret，回调必须是 `https://你的域名/charge/auth/callback`，与 Tesla 控制台完全一致；密钥不要通过聊天、Git、命令行参数或截图公开。
-3. 将 deploy/service.env.example 按实际值保存到 `/etc/tesla-charge.env`，设为 600。CHARGE_ORIGIN 只能是来源（例如 https://your-domain.example），不要尾斜杠或 /charge/app/ 路径。默认 full_only；现场才改 diagnostic。
+3. 将 deploy/service.env.example 按实际值保存到 `/etc/tesla-charge.env`，设为 600。CHARGE_ORIGIN 只能是来源（例如 https://your-domain.example），不要尾斜杠或 /charge/app/ 路径。用户在网页上为本次监控选择提醒方式。
 4. 将 deploy/tesla-charge.service 安装为 systemd 服务。若更改路径，同步修改工作目录、ExecStart、配置路径和 ReadWritePaths；不要 root 启动应用。服务需要访问外部 Tesla 和 api.day.app。
 5. 先完成 DNS 与有效 HTTPS 证书。在自己的 HTTPS Nginx server 块 include deploy/nginx-locations.conf 的两个 location。新部署直接把应用和回调都送到 5330，不需要原项目双服务分流。保留其他站点配置，备份后 nginx -t 成功才 reload。
 6. 使用 `systemctl enable --now tesla-charge` 启动。健康检查 `https://你的域名/charge/app/api/health` 应返回 200；匿名 me 应 401。确保 5330 仅监听 loopback，不对公网开放。

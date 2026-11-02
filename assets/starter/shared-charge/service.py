@@ -5,9 +5,7 @@ from tesla_watch import request, BASE, TOKEN, SCOPES
 from auto_monitor import transition, is_supercharging, granted_scopes, fresh_ms
 import store
 import station_flow
-REPORT_MODE=os.environ.get('CHARGE_REPORT_MODE','full_only')
-if REPORT_MODE not in ('full_only','diagnostic'):raise ValueError('Invalid CHARGE_REPORT_MODE')
-CHECK_INTERVAL=60 if REPORT_MODE=='diagnostic' else 540
+CHECK_INTERVAL=60
 ORIGIN=os.environ.get('CHARGE_ORIGIN','http://127.0.0.1:5330')
 PREFIX='/charge/app/'
 CALLBACK=ORIGIN+'/charge/auth/callback'
@@ -134,6 +132,9 @@ def action(uid,kind,data):
             if not d.get('notification',{}).get('confirmed'):raise ValueError('请先确认手机收到测试通知。')
             remaining=max(0,int(d.get('retry_after',0)-time.time()+0.999))
             if remaining:raise ValueError('请在 '+str(remaining)+' 秒后重新检查车辆；有效候选站仍可直接确认。')
+            mode=data.get('reminder_mode',d.get('reminder_mode','minute'))
+            if mode not in ('minute','near','move'):raise ValueError('请选择有效的提醒方式。')
+            d['reminder_mode']=mode
             d['retry_after']=time.time()+station_flow.RETRY_SECONDS
             d.pop('station_cache',None)
             d['state']={'enabled':True,'phase':'checking','status':'正在检查车辆与站点，尚未开始空位监控','next_check_at':0}
@@ -149,8 +150,7 @@ def snapshot(uid,sid):
     d=store.get(uid);s=d.get('state',{});n=d.get('notification',{})
     # Explicit allowlist: tokens, notification keys, GPS and OAuth transactions never reach the browser.
     visible={k:s.get(k) for k in ['enabled','status','checked_at','next_check_at','available','total','charging_state','occupancy_status','push_status','last_push_at']}
-    visible['report_mode']=REPORT_MODE
-    visible['check_interval']=CHECK_INTERVAL
+    visible['reminder_mode']=d.get('reminder_mode','minute')
     visible['phase']=s.get('phase') or ('monitoring' if s.get('active') and s.get('enabled') else 'failed' if s.get('checked_at') else 'idle')
     visible['candidates']=s.get('candidates',[]) if s.get('phase')=='awaiting_station' else []
     visible['candidate_expires_at']=s.get('candidate_expires_at')
@@ -161,21 +161,40 @@ def snapshot(uid,sid):
     return dict(auth_error=d.get('auth_error'),name=d['name'],connected=d.get('connected',False),vehicles=d.get('vehicles',[]),selected=d.get('selected'),notification=dict(saved=bool(n.get('key')),tested=bool(n.get('tested_at')),confirmed=bool(n.get('confirmed'))),state=visible,csrf=store.digest('csrf:'+sid))
 
 def deliver(d,s,alert):
-    if REPORT_MODE=='full_only' and (s.get('occupancy_status')!='full' or s.get('available')!=0):return
     active=s.get('active')
     if not active or not d.get('notification',{}).get('confirmed'):return
     available,total=s.get('available'),s.get('total')
+    mode=d.get('reminder_mode','minute')
+    status=s.get('occupancy_status')
+    prior=s.get('sent_band')
+    title='超充站每分钟状态'
+    if mode=='near':
+        if status=='available':s.pop('sent_band',None)
+        if status not in ('low','full') or prior==status:return
+        title='超充站已满' if status=='full' else '超充站快满了'
+    elif mode=='move':
+        finished=s.get('charge_data_fresh') and s.get('charging_state') in ('Complete','Stopped') and s.get('plug_present') is True
+        if status in ('available','low') or (s.get('charge_data_fresh') and s.get('charging_state')=='Charging'):
+            s.pop('move_first',None)
+            s.pop('move_repeated',None)
+        if status!='full' or not finished:return
+        if s.get('move_first') and (s.get('move_repeated') or time.time()-s['move_first']<540):return
+        title='本站已满，充电已结束，请挪车'
     stamp=time.strftime('%H:%M:%S',time.gmtime(time.time()+8*3600))
     body=active.get('name','本站')+' · '+stamp+'（北京时间）\n'
     if s.get('occupancy_status')!='unknown' and type(available) is int and type(total) is int and 0<=available<=total:
         body+='空闲 '+str(available)+' / 总计 '+str(total)+' 个桩；不可用 '+str(total-available)+' 个（不一定全部有车占用）。'
         sync=s.get('sync_time')
         if type(sync) in (int,float):body+='\n站点数据更新：'+time.strftime('%H:%M:%S',time.gmtime(sync+8*3600))+'（北京时间）'
-        if available==0:body+='\n当前无空闲桩，如已结束充电请及时挪车。'
+        if available==0:body+='\n当前无空闲桩。'
     else:
         body+='本轮数据缺失、过期或查询失败，暂时无法确认占位情况。'
     try:
-        push(d['notification']['key'],body,title='超充满位提醒' if REPORT_MODE=='full_only' else '超充站每分钟状态')
+        push(d['notification']['key'],body,title=title)
+        if mode=='near':s['sent_band']=status
+        if mode=='move':
+            if s.get('move_first'):s['move_repeated']=True
+            else:s['move_first']=time.time()
         s.update(last_push_at=time.time(),push_status='通知服务已接收')
     except (RuntimeError,ValueError,OSError):s['push_status']='推送失败，请检查手机通知设置'
 
@@ -199,6 +218,7 @@ def step(uid,now=None):
                 d['state']=s;d.pop('station_cache',None);store.put(uid,d);return True
             if s.get('active') or is_supercharging(vehicle,time.time()):nearby=client.sites(car['vin'])
             s,alert=transition(s,vehicle,nearby,time.time())
+            s['plug_present']=charge.get('fast_charger_present') is True or charge.get('conn_charge_cable') in ('IEC','SAE','GB_DC','GB_AC','Tesla','US')
             if not s.get('active') and is_supercharging(vehicle,time.time()) and s.get('ended_reason')!='departed':
                 station_flow.prepare(d,s,vehicle,nearby,time.time())
             deliver(d,s,alert)
