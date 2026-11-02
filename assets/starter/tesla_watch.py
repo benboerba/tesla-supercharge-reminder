@@ -56,8 +56,13 @@ def request(url, payload=None, token=None, form=False):
     except urllib.error.HTTPError as exc:
         # Do not print request URLs, raw responses or credential-bearing payloads.
         raise RuntimeError('服务返回 HTTP %s；检查授权、限额或服务状态' % exc.code) from None
-    except (urllib.error.URLError, TimeoutError, ValueError):
-        raise RuntimeError('请求失败或响应无效；不能确认当前空位') from None
+    except TimeoutError:
+        raise RuntimeError('请求超时') from None
+    except urllib.error.URLError as exc:
+        reason = '请求超时' if isinstance(exc.reason, TimeoutError) else '网络连接失败'
+        raise RuntimeError(reason) from None
+    except ValueError:
+        raise RuntimeError('服务返回的数据无法解析') from None
 
 
 def configure():
@@ -171,8 +176,10 @@ def classify(data, key, now, max_age=180):
             site = matches[0]
             available, total = site.get('available_stalls'), site.get('total_stalls')
             if type(available) is int and type(total) is int and 0 <= available <= total and total > 0 and not site.get('site_closed'):
-                age = ('约 %s 分钟前的数据' % max(1, int((now-timestamp)/60))) if isinstance(timestamp,(int,float)) and timestamp <= now else '更新时间无法确认'
-                return 'unknown', '接口上次数据：空闲 %s / 总桩 %s（%s）；当前空位未确认' % (available,total,age)
+                if type(timestamp) in (int, float) and 0 < timestamp <= now:
+                    updated = time.strftime('%m月%d日 %H:%M:%S', time.gmtime(timestamp + 8*3600))
+                    return 'unknown', '站点空位暂未更新。上次更新于%s（北京时间），当时空闲 %s / 总桩 %s 个。' % (updated, available, total)
+                return 'unknown', '站点未提供有效更新时间，当前空位待确认。'
         return 'unknown', '空位更新时间缺失或过期，请打开 Tesla App 核实'
     matches = [s for s in data.get('superchargers', []) if station_key(s) == key]
     if len(matches) != 1:

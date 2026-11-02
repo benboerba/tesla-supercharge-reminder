@@ -55,7 +55,7 @@ class SharedTests(unittest.TestCase):
   self.ready(self.a)
   with patch.object(service.Client,'cars',return_value=[]),patch.object(service.Client,'sites') as sites,patch.object(service,'push') as push:
    service.step(self.a);sites.assert_not_called();push.assert_called_once()
-   self.assertIn('暂时无法确认',push.call_args[0][1])
+   self.assertIn('读取车辆列表失败',push.call_args[0][1])
   self.assertIsNone(store.get(self.a)['state']['available'])
  def test_unplug_stops_without_sites_or_more_queries(self):
   d=self.ready(self.a)
@@ -168,7 +168,7 @@ class SharedTests(unittest.TestCase):
  def test_cached_stale_occupancy_never_notifies(self):
   d=self.prepare_waiting(0);d['station_cache']['nearby']['congestion_sync_time_utc_secs']=time.time()-400;store.put(self.a,d)
   with patch.object(service,'push') as p:
-   service.action(self.a,'confirm_station',{'station':'test-station','confirmed':True});p.assert_called_once();self.assertIn('暂时无法确认',p.call_args[0][1])
+   service.action(self.a,'confirm_station',{'station':'test-station','confirmed':True});p.assert_called_once();self.assertIn('当时空闲 0 / 总桩 6',p.call_args[0][1])
   self.assertIsNone(store.get(self.a)['state']['available'])
  def test_expired_selection_requires_recheck(self):
   d=self.prepare_waiting();d['station_cache']['expires']=0;store.put(self.a,d)

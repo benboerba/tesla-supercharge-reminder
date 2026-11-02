@@ -22,8 +22,8 @@ class MonitorTests(unittest.TestCase):
         status,message=classify(self.data(3), '7', 1540)
         self.assertEqual(status,'unknown')
         self.assertIn('空闲 3 / 总桩 8',message)
-        self.assertIn('9 分钟前',message)
-        self.assertIn('当前空位未确认',message)
+        self.assertIn('08:16:40（北京时间）',message)
+        self.assertIn('暂未更新',message)
 
     def test_missing_freshness_is_unknown(self):
         data = self.data()

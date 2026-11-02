@@ -188,7 +188,7 @@ def deliver(d,s,alert):
         if type(sync) in (int,float):body+='\n站点数据更新：'+time.strftime('%H:%M:%S',time.gmtime(sync+8*3600))+'（北京时间）'
         if available==0:body+='\n当前无空闲桩。'
     else:
-        body+='本轮数据缺失、过期或查询失败，暂时无法确认占位情况。'
+        body+=s.get('status') or '暂时无法确认站点空位。'
     try:
         push(d['notification']['key'],body,title=title)
         if mode=='near':s['sent_band']=status
@@ -205,25 +205,36 @@ def step(uid,now=None):
         d=store.get(uid);s=d.get('state',{})
         if not d.get('connected') or not s.get('enabled') or now<(s.get('next_check_at') or 0):return False
         try:
+            stage='读取车辆列表'
             client=Client(uid,d);cars=client.cars()
             match=[c for c in cars if c['vin']==d.get('selected')]
             if len(match)!=1:raise ValueError('选定车辆已不在授权账户中。')
             car=match[0];vehicle={};nearby={}
             if car.get('state')=='online':
+                stage='读取充电状态'
                 endpoints='charge_state' if s.get('active') else 'charge_state%3Blocation_data'
                 vehicle=client.api('/api/1/vehicles/'+car['vin']+'/vehicle_data?endpoints='+endpoints)
             charge=vehicle.get('charge_state',{})
             if charge.get('charging_state')=='Disconnected' and fresh_ms(charge.get('timestamp'),time.time()):
                 s.update(enabled=False,phase='stopped',active=None,ended_reason='unplugged',status='已拔下充电枪，本次监控已结束，不再查询车辆',charging_state='Disconnected',checked_at=time.time(),next_check_at=None,available=None,total=None,occupancy_status=None,candidates=[],candidate_expires_at=None)
                 d['state']=s;d.pop('station_cache',None);store.put(uid,d);return True
-            if s.get('active') or is_supercharging(vehicle,time.time()):nearby=client.sites(car['vin'])
+            if s.get('active') or is_supercharging(vehicle,time.time()):
+                stage='查询站点空位'
+                nearby=client.sites(car['vin'])
+            stage='处理查询结果'
             s,alert=transition(s,vehicle,nearby,time.time())
             s['plug_present']=charge.get('fast_charger_present') is True or charge.get('conn_charge_cable') in ('IEC','SAE','GB_DC','GB_AC','Tesla','US')
             if not s.get('active') and is_supercharging(vehicle,time.time()) and s.get('ended_reason')!='departed':
                 station_flow.prepare(d,s,vehicle,nearby,time.time())
             deliver(d,s,alert)
-        except (RuntimeError,ValueError,OSError,KeyError,TypeError):
-            s.update(checked_at=time.time(),available=None,total=None,occupancy_status='unknown',status='无法获取有效数据，请检查授权或稍后重试；本轮占位情况未知')
+        except (RuntimeError,ValueError,OSError,KeyError,TypeError) as exc:
+            http=re.search(r'HTTP (\d{3})',str(exc))
+            reason='HTTP '+http.group(1) if http else str(exc)
+            if reason not in ('请求超时','网络连接失败','服务返回的数据无法解析','车辆接口响应不完整。','无法获取车辆列表。','空位数据格式无法确认。','选定车辆已不在授权账户中。') and not http:
+                reason='返回内容异常（'+type(exc).__name__+'）'
+            message=stage+'失败：'+reason
+            print('CHARGE_CHECK_FAILURE '+message,flush=True)
+            s.update(checked_at=time.time(),available=None,total=None,occupancy_status='unknown',status=message)
             deliver(d,s,None)
         s['enabled']=bool(s.get('active'))
         if s['enabled']:s['phase']='monitoring'
