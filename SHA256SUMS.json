@@ -1,12 +1,12 @@
 {
   "LICENSE": "95e16bed8ed4b437bf3a3901785479fc4be9d723ab41d749bb0fa6ea811b1806",
-  "README.md": "fbe42da9f3db430b132c6403d1205eade92f16cefbd7d44bf43462c66d21a9cc",
+  "README.md": "4221dd2ef12ab39fa6d0326aad9cff5f2ccfbc1c76613415ebedbda8f5534131",
   "验证结果.md": "cd2407bf9b18abfabf2994e03945921fffdf952664b7b5025443b160c6f2e36b",
   ".gitignore": "4d5ebfe23ddb6de9aa0e9f74d003911943050ad3e50d8bcb9ff126db9fb867ca",
-  "SKILL.md": "0bf53d93a23756db8bac6dc1f4a23dbfaab9bace4922a15b4c3609820761f0a7",
+  "SKILL.md": "23a67685b04e5a9df0c765aaa5703d46696258cf139c9cdb44dfd8e49a3ea12d",
   "给AI助手的开场指令.txt": "37a04f7580ca685ccc4763813cd8890de441022bb45a6f23cec596b66583cb0d",
   "references/deploy.md": "9d815a52c7b6928391f06934d85fd6059f22a00da2a598e373a60c82a0472309",
-  "references/verification.md": "d183ef3a2db83d4c14bcd569cfae6bb41170f99ed13b3742d8ee5cffc7af2248",
+  "references/verification.md": "33ae3378c44d1dd43674fa3993cc86c989b8c9ee7a7c91e0b404bcb750e03f71",
   "references/design.md": "5d168b8f1b5fe32aa962e6dcb1b27a8eb42604898aacc8ff869d1d2b12a978bd",
   "assets/starter/test_tesla_watch.py": "78bbe9f67399dee563aa4b9a04a826c2f69d91e685ef7dd0e8342cd793faf5f3",
   "assets/starter/tesla_watch.py": "6e41e61c7412a2e0274add5060e1e4a071d6b82c4ad52dc88fa11da774ca9f8b",
@@ -32,5 +32,6 @@
   "assets/starter/shared-charge/static/app.js": "606f8486fef622e6d42b2d8e568c6c037b92482e73a81cc75487f794ce6f5ace",
   "assets/starter/deploy/nginx-locations.conf": "0b99f08baafc1b2982cfebdbb115570ed16df0ce99b651484eb9d9c22da6d29f",
   "assets/starter/deploy/tesla-charge.service": "54ca34afc8552eeb6a6e5ea80c843a7379d6c9a1c29060fc7927f8dd7e2950f5",
-  "assets/starter/deploy/service.env.example": "61f56d400874e9845bbaf90cf5fed75f8b1eeefd708a72a4422b1dc0210114c4"
+  "assets/starter/deploy/service.env.example": "61f56d400874e9845bbaf90cf5fed75f8b1eeefd708a72a4422b1dc0210114c4",
+  "references/china-example.md": "03a34480b2907b6550488b60242f0381d9243e1ec8554ce2689789d5054f0197"
 }
