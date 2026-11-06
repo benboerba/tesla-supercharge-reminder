@@ -8,6 +8,15 @@ RETRY_SECONDS=60
 def candidates(vehicle,nearby,now):
     p=position(vehicle,now)
     if not p:return [],'车辆位置缺失或过期，暂不能提供可靠的附近站点。'
+    rows=nearby_rows(p,nearby)
+    close=[x for x in rows if x['distance_m']<=300]
+    if len(close)>1:reason='300 米内有多个候选站，无法自动确定本站。'
+    elif len(close)==1 and close[0]['closed']:reason='最近候选站被接口标记为关闭，不能自动启用。'
+    elif len(close)==1 and close[0]['distance_m']>150:reason='最近候选站超过自动匹配的 150 米范围。'
+    else:reason='300 米内未找到唯一可匹配的超充站。'
+    return rows,reason
+
+def nearby_rows(p,nearby):
     rows=[]
     for site in nearby.get('superchargers',[]):
         target=site_position(site)
@@ -16,12 +25,7 @@ def candidates(vehicle,nearby,now):
         if meters<=2000:
             rows.append({'id':station_key(site),'name':site.get('name') or '未命名超充站','distance_m':meters,'closed':bool(site.get('site_closed'))})
     rows.sort(key=lambda x:x['distance_m'])
-    close=[x for x in rows if x['distance_m']<=300]
-    if len(close)>1:reason='300 米内有多个候选站，无法自动确定本站。'
-    elif len(close)==1 and close[0]['closed']:reason='最近候选站被接口标记为关闭，不能自动启用。'
-    elif len(close)==1 and close[0]['distance_m']>150:reason='最近候选站超过自动匹配的 150 米范围。'
-    else:reason='300 米内未找到唯一可匹配的超充站。'
-    return rows[:10],reason
+    return rows[:10]
 
 def prepare(d,s,vehicle,nearby,now):
     rows,reason=candidates(vehicle,nearby,now)

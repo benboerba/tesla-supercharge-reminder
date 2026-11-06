@@ -144,6 +144,20 @@ class SharedTests(unittest.TestCase):
   now=time.time();v={'drive_state':{'latitude':31.0,'longitude':121.0,'gps_as_of':now,'timestamp':now*1000},'charge_state':{'charging_state':'Charging','fast_charger_present':True,'fast_charger_brand':'Tesla','timestamp':now*1000}}
   nearby={'congestion_sync_time_utc_secs':now,'superchargers':[{'id':'test-station','name':'模拟绚荟城','location':{'lat':31.005,'long':121.0},'available_stalls':available,'total_stalls':6,'site_closed':False}]}
   return v,nearby
+ def test_switch_after_automatic_match(self):
+  d=self.ready(self.a);d['state']={'enabled':True,'next_check_at':0};store.put(self.a,d)
+  vehicle,nearby=self.station_fixture(1)
+  nearby['superchargers'].append(dict(nearby['superchargers'][0],id='first',name='原站',location={'lat':31.0,'long':121.0},available_stalls=5))
+  with patch.object(service.Client,'cars',return_value=[{'vin':d['selected'],'state':'online'}]),patch.object(service.Client,'api',return_value=vehicle),patch.object(service.Client,'sites',return_value=nearby),patch.object(service,'push') as push:
+   service.step(self.a)
+   before=service.snapshot(self.a,self.sa)['state']
+   self.assertEqual(before['station'],'原站')
+   target=next(x for x in before['station_choices'] if x['name']=='模拟绚荟城')
+   service.action(self.a,'switch_station',{'from_station':before['station_id'],'station':target['id']})
+   self.assertIsNone(service.snapshot(self.a,self.sa)['state']['available'])
+   service.step(self.a)
+   self.assertEqual(service.snapshot(self.a,self.sa)['state']['available'],1)
+   self.assertIn('模拟绚荟城',push.call_args[0][1])
  def prepare_waiting(self,available=2):
   d=self.ready(self.a);d['state']={'enabled':True,'phase':'checking','next_check_at':0};store.put(self.a,d)
   v,n=self.station_fixture(available)

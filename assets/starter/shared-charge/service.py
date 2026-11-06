@@ -126,6 +126,19 @@ def action(uid,kind,data):
             s['checked_at']=d['station_cache']['queried_at']
             deliver(d,s,alert);s.update(enabled=True,phase='monitoring',next_check_at=now+CHECK_INTERVAL)
             d['state']=s;d.pop('station_cache',None)
+        elif kind=='switch_station':
+            active=s.get('active') or {}
+            now=time.time()
+            if not s.get('enabled') or not active or store.digest(active['key'])!=data.get('from_station'):
+                raise ValueError('监控站点已改变，请刷新后查看。')
+            if now-s.get('choices_at',0)>station_flow.CACHE_SECONDS:
+                raise ValueError('附近站点列表待更新，请在下一次查询后重试。')
+            choices=[x for x in s.get('station_choices',[]) if store.digest(x['id'])==data.get('station') and not x['closed']]
+            if len(choices)!=1 or choices[0]['id']==active['key']:
+                raise ValueError('请选择列表中的其他可用站点。')
+            station=dict(active,key=choices[0]['id'],name=choices[0]['name'],manual_confirmed=True)
+            d['state']=dict(enabled=True,phase='monitoring',active=station,next_check_at=0,
+                            status='已更换站点，正在查询本站空位。')
         elif kind=='start':
             if s.get('enabled'):return
             if not d.get('connected') or not d.get('selected'):raise ValueError('请先授权并选择车辆。')
@@ -157,6 +170,10 @@ def snapshot(uid,sid):
     visible['match_reason']=s.get('match_reason')
     visible['retry_after']=d.get('retry_after',0)
     visible['server_time']=time.time()
+    active=s.get('active') or {}
+    visible['station_id']=store.digest(active['key']) if active.get('key') else None
+    visible['manual_station']=bool(active.get('manual_confirmed'))
+    visible['station_choices']=[dict(x,id=store.digest(x['id'])) for x in s.get('station_choices',[])] if active and time.time()-s.get('choices_at',0)<=station_flow.CACHE_SECONDS else []
     visible['station']=(s.get('active') or {}).get('name')
     return dict(auth_error=d.get('auth_error'),name=d['name'],connected=d.get('connected',False),vehicles=d.get('vehicles',[]),selected=d.get('selected'),notification=dict(saved=bool(n.get('key')),tested=bool(n.get('tested_at')),confirmed=bool(n.get('confirmed'))),state=visible,csrf=store.digest('csrf:'+sid))
 
@@ -223,6 +240,9 @@ def step(uid,now=None):
                 nearby=client.sites(car['vin'])
             stage='处理查询结果'
             s,alert=transition(s,vehicle,nearby,time.time())
+            if s.get('active'):
+                s['station_choices']=station_flow.nearby_rows(s['active']['position'],nearby)
+                s['choices_at']=time.time()
             s['plug_present']=charge.get('fast_charger_present') is True or charge.get('conn_charge_cable') in ('IEC','SAE','GB_DC','GB_AC','Tesla','US')
             if not s.get('active') and is_supercharging(vehicle,time.time()) and s.get('ended_reason')!='departed':
                 station_flow.prepare(d,s,vehicle,nearby,time.time())

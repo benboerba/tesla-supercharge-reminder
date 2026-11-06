@@ -1,5 +1,7 @@
 import React,{useState,useEffect} from 'react';
 export default function Monitor({s,me,busy,act}){
+ const [editing,setEditing]=useState(false),[replacement,setReplacement]=useState('');
+ useEffect(()=>{setEditing(false);setReplacement('')},[s.station_id,s.enabled]);
  const [mode,setMode]=useState(s.reminder_mode||'minute');
  useEffect(()=>setMode(s.reminder_mode||'minute'),[s.reminder_mode,me.name]);
  const [now,setNow]=useState(Date.now()/1000),[choice,setChoice]=useState(''),[confirmed,setConfirmed]=useState(false);
@@ -11,7 +13,14 @@ export default function Monitor({s,me,busy,act}){
  const charges={Charging:'正在充电',Complete:'充电已完成',Disconnected:'未连接充电枪',Stopped:'已停止充电',Starting:'正在开始充电',NoPower:'充电桩未供电'};
  return <section className="panel"><div className="flex justify-between gap-3 items-center"><h2 className="text-xl font-semibold">本次监控</h2><span className="text-sm rounded-full px-3 py-1 bg-paper">{checking?'检查中 · 尚未监控':running?'监控中':phase==='awaiting_station'?'需要确认站点':'未开启'}</span></div>
  {stale&&<p role="status" className="mt-5 p-3 bg-amber-50 rounded-xl text-sm">以下是上次检查结果，已超过 3 分钟，不能代表当前车辆或空位状态。</p>}
- <p className="mt-7 text-2xl font-medium">{s.station|| (checking?'正在识别超充站':phase==='awaiting_station'?'请选择实际所在站点':'尚未选定超充站')}</p>
+ {running&&<div className="sticky top-0 z-10 bg-white py-3 border-b border-ink/10">
+ <p className="hint">{s.manual_station?'已确认的超充站':'自动匹配的超充站'}</p>
+ <div className="flex items-center justify-between gap-3"><strong className="text-xl">{s.station}</strong><button className="text-accent underline" onClick={()=>setEditing(!editing)}>{editing?'取消':'更换站点'}</button></div>
+ {editing&&<div className="mt-3"><label htmlFor="replacement">选择实际充电的超充站</label>
+ <select id="replacement" value={replacement} onChange={e=>setReplacement(e.target.value)}><option value="">请选择其他站点</option>{(s.station_choices||[]).filter(x=>!x.closed&&x.id!==s.station_id).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>
+ {(s.station_choices||[]).some(x=>!x.closed&&x.id!==s.station_id)?<button className="btn mt-2" disabled={!replacement||!!busy} onClick={()=>act('switch_station',{from_station:s.station_id,station:replacement})}>确认更换并监控本站</button>:<p className="hint">本轮没有其他可选站点，下一轮查询会更新列表。</p>}</div>}
+ </div>}
+ {!running&&<p className="mt-7 text-2xl font-medium">{s.station|| (checking?'正在识别超充站':phase==='awaiting_station'?'请选择实际所在站点':'尚未选定超充站')}</p>}
  <div className="flex items-baseline gap-3 mt-5"><strong className="text-6xl font-semibold tabular-nums">{stale?'—':s.available??'—'}</strong><span className="text-ink/60">/ {stale?'—':s.total??'—'} 个空闲桩</span></div>
  <p className="mt-6 leading-7">{s.status||'请在连接 Tesla 超充桩、正在充电时检查车辆。'}</p>
  {phase==='awaiting_station'&&<div className="mt-5 p-4 border border-accent/30 rounded-xl bg-paper"><p className="font-medium">确认你实际所在的超充站</p><p className="hint mt-2">列表来自本次 Tesla 接口查询，距离仅供核对。确认时使用这次检查的数据，不额外查询车辆。{expired?'候选已过期，请重新检查。':'有效期剩余 '+Math.max(0,Math.ceil((s.candidate_expires_at-now)/60))+' 分钟。'}</p><label htmlFor="station" className="mt-4">附近站点</label><select id="station" value={choice} onChange={e=>{setChoice(e.target.value);setConfirmed(false)}} disabled={!!busy||expired}><option value="">请选择站点</option>{(s.candidates||[]).map(x=><option key={x.id} value={x.id} disabled={x.closed}>{x.name} · 约 {x.distance_m} 米{x.closed?' · 接口标记关闭':''}</option>)}</select><label className="flex items-start gap-3 text-sm font-normal mt-4"><input className="!w-4 mt-1" type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} disabled={!choice||expired}/><span>我确认车辆正在所选站点充电</span></label><button className="btn w-full mt-3" disabled={!!busy||!choice||!confirmed||expired} onClick={()=>act('confirm_station',{station:choice,confirmed:true})}>确认本站并开始监控</button></div>}
