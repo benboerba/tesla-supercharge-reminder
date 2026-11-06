@@ -1,10 +1,10 @@
 {
   "LICENSE": "95e16bed8ed4b437bf3a3901785479fc4be9d723ab41d749bb0fa6ea811b1806",
-  "README.md": "e3159318db1cfa6b485929cc7283c252ebacebb8e6f87ebb0826890b69b983e9",
+  "README.md": "fbe42da9f3db430b132c6403d1205eade92f16cefbd7d44bf43462c66d21a9cc",
   "验证结果.md": "cd2407bf9b18abfabf2994e03945921fffdf952664b7b5025443b160c6f2e36b",
   ".gitignore": "4d5ebfe23ddb6de9aa0e9f74d003911943050ad3e50d8bcb9ff126db9fb867ca",
-  "SKILL.md": "69bc767f9c3417d3a1ac9d123ecb6ffa100c19b65df5e1035f6efa30576a55e6",
-  "给AI助手的开场指令.txt": "c14bd1e4be0d07123db7b815294e87a250f1dabdb80ce572e8285171ce0607c2",
+  "SKILL.md": "0bf53d93a23756db8bac6dc1f4a23dbfaab9bace4922a15b4c3609820761f0a7",
+  "给AI助手的开场指令.txt": "37a04f7580ca685ccc4763813cd8890de441022bb45a6f23cec596b66583cb0d",
   "references/deploy.md": "9d815a52c7b6928391f06934d85fd6059f22a00da2a598e373a60c82a0472309",
   "references/verification.md": "d183ef3a2db83d4c14bcd569cfae6bb41170f99ed13b3742d8ee5cffc7af2248",
   "references/design.md": "5d168b8f1b5fe32aa962e6dcb1b27a8eb42604898aacc8ff869d1d2b12a978bd",

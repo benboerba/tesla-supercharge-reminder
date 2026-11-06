@@ -17,7 +17,7 @@ git clone https://github.com/benboerba/tesla-supercharge-reminder.git
 cd tesla-supercharge-reminder
 ```
 
-- AI 助手入口：[SKILL.md](SKILL.md)
+- 从开发者账号、回调地址到上线验收的制作步骤：[AI 搭建 Skill](SKILL.md)。把整个仓库交给助手，复制[开场指令](给AI助手的开场指令.txt)即可开始。
 - 人工搭建：[部署说明](references/deploy.md)
 - 原理与限制：[产品与实现](references/design.md)
 - 验收：[验证与排错](references/verification.md)
